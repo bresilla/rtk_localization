@@ -5,6 +5,7 @@ from nav_msgs.msg import Odometry
 import tf2_ros
 from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
 from geometry_msgs.msg import TransformStamped
+from example_interfaces.srv import Trigger
 
 class Transformerr(Node):
     def __init__(self, args):
@@ -12,33 +13,43 @@ class Transformerr(Node):
         self.tf_dyna_broadcaster = TransformBroadcaster(self)
         self.tf_stat_broadcaster = StaticTransformBroadcaster(self)
         self.odom_sub = self.create_subscription(Odometry, "/rtk/odom", self.dyna_transform, 10)
+        self.srv = self.create_service(Trigger, '/rtk/stat_transform_reset', self.request_stat)
+        self.stat_transform()
 
-    def stat_transform(self):
+    def request_stat(self, request, response):
+        self.stat_transform()
+        response.message = "Static transform reseted"
+        response.success = True
+        self.get_logger().info('Static transform reseted')
+        return response
+
+    def stat_transform(self, msg=None):
+        msg_value = msg if msg else Odometry()
         stat_t = TransformStamped()
-        stat_t.header = self.get_clock().now().to_msg()
+        stat_t.header.stamp = self.get_clock().now().to_msg()
         stat_t.header.frame_id = "map"
         stat_t.child_frame_id = "odom"
-        stat_t.transform.translation.x = 0.0
-        stat_t.transform.translation.y = 0.0
-        stat_t.transform.translation.z = 0.0
-        stat_t.transform.rotation.x = 0.0
-        stat_t.transform.rotation.y = 0.0
-        stat_t.transform.rotation.z = 0.0
-        stat_t.transform.rotation.w = 1.0
+        stat_t.transform.translation.x = msg_value.pose.pose.position.x
+        stat_t.transform.translation.y = msg_value.pose.pose.position.y
+        stat_t.transform.translation.z = msg_value.pose.pose.position.z
+        stat_t.transform.rotation.x = msg_value.pose.pose.orientation.x
+        stat_t.transform.rotation.y = msg_value.pose.pose.orientation.y
+        stat_t.transform.rotation.z = msg_value.pose.pose.orientation.z
+        stat_t.transform.rotation.w = msg_value.pose.pose.orientation.w
         self.tf_stat_broadcaster.sendTransform(stat_t)
 
     def dyna_transform(self, msg):
         dyna_t = TransformStamped()
-        dyna_t.header = msg.header
+        dyna_t.header.stamp = msg.header.stamp
         dyna_t.header.frame_id = "odom"
         dyna_t.child_frame_id = "base_link"
         dyna_t.transform.translation.x = msg.pose.pose.position.x
         dyna_t.transform.translation.y = msg.pose.pose.position.y
-        dyna_t.transform.translation.z = 0.0
-        dyna_t.transform.rotation.x = 0.0
-        dyna_t.transform.rotation.y = 0.0
-        dyna_t.transform.rotation.z = 0.0
-        dyna_t.transform.rotation.w = 1.0
+        dyna_t.transform.translation.z = msg.pose.pose.position.z
+        dyna_t.transform.rotation.x = msg.pose.pose.orientation.x
+        dyna_t.transform.rotation.y = msg.pose.pose.orientation.y
+        dyna_t.transform.rotation.z = msg.pose.pose.orientation.z
+        dyna_t.transform.rotation.w = msg.pose.pose.orientation.w
         self.tf_dyna_broadcaster.sendTransform(dyna_t)
 
 def main(args=None):

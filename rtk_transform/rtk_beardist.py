@@ -5,6 +5,7 @@ from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from example_interfaces.srv import Trigger
 from handy_msgs.msg import Float32Stamped
+from handy_msgs.srv import SetFix
 
 def distance(coord1, coord2):
     radius_earth = 6_367_449
@@ -40,13 +41,31 @@ class Remapper(Node):
         self.angle_pub = self.create_publisher(Float32Stamped, "/rtk/bearing", 10)
         self.odom_pub = self.create_publisher(Odometry, "/rtk/odom", 10)
         self.dot_pub = self.create_publisher(NavSatFix, "/rtk/fix", 10)
-        self.srv = self.create_service(Trigger, '/rtk/fix_set', self.fix_set)
+        self.fix_srv = self.create_service(SetFix, '/rtk/fix_set', self.fix_set)
+        self.tmp_srv = self.create_service(Trigger, '/rtk/tmp_set', self.tmp_set)
+        self.cli = self.create_client(Trigger, '/rtk/stat_transform_reset')
 
-    def fix_set(self, request, response):
+    def tmp_set(self, request, response):
+        self.get_logger().info('FIX SET TO CURRENT POSITION')
+        self.request_stat()
         self.fix_position = self.tmp_position
-        response.message = "Distance reset"
+        response.message = f"FIX SET TO: {self.fix_position.latitude}, {self.fix_position.longitude}"
         response.success = True
         return response
+
+    def fix_set(self, request, response):
+        self.get_logger().info('FIX SET TO DATUM')
+        self.request_stat()
+        self.fix_position = request.geo_pose
+        response.message = f"FIX SET TO: {self.fix_position.latitude}, {self.fix_position.longitude}"
+        response.success = True
+        return response
+    
+    def request_stat(self):
+        cli_request = Trigger.Request()
+        while not self.cli.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('service not available, waiting again...')
+        self.cli.call_async(cli_request)
 
     def gps_callback(self, msg):
         self.tmp_position = msg

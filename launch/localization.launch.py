@@ -31,14 +31,14 @@ def generate_launch_description():
         #     shell=True
         # ),
         Node(
-            package='rtk_transform',
+            package='rtk_localization',
             executable='rtk_transform',
             name='rtk_transform',
             output='screen',
             parameters=[{'param2': LaunchConfiguration('param2')}],
         ),
         Node(
-            package='rtk_transform',
+            package='rtk_localization',
             executable='rtk_beardist',
             name='rtk_beardist',
             output='screen',

@@ -2,11 +2,10 @@ from glob import glob
 from setuptools import setup
 import os
 
-package_name = 'rtk_transform'
+package_name = 'rtk_localization'
 
 data_files = []
 #resources
-data_files.append(('share/ament_index/resource_index/packages', ['resource/' + package_name]))
 data_files.append(('share/' + package_name + '/resource', glob('resource/*')))
 data_files.append(('share/' + package_name, ['package.xml']))
 
@@ -29,8 +28,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'rtk_transform = rtk_transform.rtk_transform:main',
-            'rtk_beardist = rtk_transform.rtk_beardist:main'
+            'rtk_transform = rtk_localization.rtk_transform:main',
+            'rtk_beardist = rtk_localization.rtk_beardist:main'
         ],
         'launch.frontend.launch_extension': [
             'launch_ros = launch_ros'

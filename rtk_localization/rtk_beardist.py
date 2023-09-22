@@ -7,6 +7,7 @@ from example_interfaces.srv import Trigger
 from handy_msgs.msg import Float32Stamped
 from rclpy.executors import MultiThreadedExecutor
 from handy_msgs.srv import WGS, UTM
+import time
 
 def distance(coord1, coord2):
     radius_earth = 6_367_449
@@ -39,13 +40,15 @@ class RTKBeardist(Node):
         self.dist_pub = self.create_publisher(Float32Stamped, "/rtk/distance", 10)
         self.angle_pub = self.create_publisher(Float32Stamped, "/rtk/bearing", 10)
         self.odom_pub = self.create_publisher(Odometry, "/rtk/odom", 10)
-        self.dot_pub = self.create_publisher(NavSatFix, "/rtk/fix", 10)
+        self.dot_pub = self.create_publisher(NavSatFix, "/rtk/dot", 10)
+        self.gps_pub = self.create_publisher(NavSatFix, "/rtk/fix", 10)
 
     def gps_callback(self, msg):
         global odom_position
         global fix_position
         global tmp_position
         tmp_position = msg
+        self.gps_pub.publish(tmp_position)
         dist_msg = Float32Stamped()
         bear_msg = Float32Stamped()
         dist_msg.header = msg.header
@@ -83,10 +86,10 @@ class RTKServices(Node):
     def __init__(self):
         super().__init__("rtk_services")
         self.fix_srv = self.create_service(WGS, '/rtk/fix_set', self.fix_set)
-        self.tmp_srv = self.create_service(Trigger, '/rtk/tmp_set', self.tmp_set)
+        self.tmp_srv = self.create_service(Trigger, '/rtk/cur_set', self.cur_set)
         self.cli = self.create_client(UTM, '/rtk/map2odom')
 
-    def tmp_set(self, request, response):
+    def cur_set(self, request, response):
         global fix_position
         global tmp_position
         self.get_logger().info('FIX SET TO CURRENT POSITION')
@@ -106,6 +109,7 @@ class RTKServices(Node):
     
     def request_stat(self):
         global odom_position
+        time.sleep(1)
         while odom_position is None: 
             self.get_logger().info('TRANSFORM NOT AVAILABLE')
         cli_request = UTM.Request()

@@ -60,7 +60,6 @@ def main(args=None):
     rclpy.spin(navfix)
     rclpy.shutdown()
 
-
 if __name__ == '__main__':
     main()
 

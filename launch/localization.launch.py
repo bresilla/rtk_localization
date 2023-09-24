@@ -44,4 +44,11 @@ def generate_launch_description():
             output='screen',
             parameters=[{'param2': LaunchConfiguration('param2')}],
         ),
+        Node(
+            package='rtk_localization',
+            executable='rtk_odometry',
+            name='rtk_odometry',
+            output='screen',
+            parameters=[{'param2': LaunchConfiguration('param2')}],
+        ),
     ])

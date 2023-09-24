@@ -29,7 +29,8 @@ setup(
     entry_points={
         'console_scripts': [
             'rtk_transform = rtk_localization.rtk_transform:main',
-            'rtk_beardist = rtk_localization.rtk_beardist:main'
+            'rtk_beardist = rtk_localization.rtk_beardist:main',
+            'rtk_odometry = rtk_localization.rtk_odometry:main',
         ],
         'launch.frontend.launch_extension': [
             'launch_ros = launch_ros'

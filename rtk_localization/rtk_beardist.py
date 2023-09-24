@@ -29,50 +29,52 @@ def bearing(coord1, coord2):
     initial_bearing = math.atan2(x, y)
     initial_bearing = math.degrees(initial_bearing)
     bearing = (initial_bearing + 360) % 360
-    bearing = math.radians(bearing)
-    bearing = math.pi - bearing
-    return bearing
+    radians = math.radians(bearing)
+    radians = math.pi - radians
+    return radians, bearing
 
 class RTKBeardist(Node):
     def __init__(self):
         super().__init__("rtk_beardist")
+        self.calc_point = None
+        self.distance = 0.0
+        self.radians = 0.0
+        self.degrees = 0.0
         self.gps_sub = self.create_subscription(NavSatFix, "/gps/fix", self.gps_callback, 10)
+        self.gps_pub = self.create_publisher(NavSatFix, "/rtk/fix", 10)
         self.dist_pub = self.create_publisher(Float32Stamped, "/rtk/distance", 10)
-        self.angle_pub = self.create_publisher(Float32Stamped, "/rtk/bearing", 10)
+        self.rad_pub = self.create_publisher(Float32Stamped, "/rtk/radians", 10)
+        self.deg_pub = self.create_publisher(Float32Stamped, "/rtk/degrees", 10)
         self.odom_pub = self.create_publisher(Odometry, "/rtk/odom", 10)
         self.dot_pub = self.create_publisher(NavSatFix, "/rtk/dot", 10)
-        self.gps_pub = self.create_publisher(NavSatFix, "/rtk/fix", 10)
 
     def gps_callback(self, msg):
         global odom_position
         global fix_position
         global tmp_position
+        if fix_position is None: return
         tmp_position = msg
-        self.gps_pub.publish(tmp_position)
+        self.gps_pub.publish(msg)
         dist_msg = Float32Stamped()
-        bear_msg = Float32Stamped()
-        dist_msg.header = msg.header
-        bear_msg.header = msg.header
-        if fix_position is None:
-            dist_msg.data = 0.0
-            bear_msg.data = 0.0
-            self.dist_pub.publish(dist_msg)
-            self.angle_pub.publish(bear_msg)
-            return
-        dist = distance((fix_position.latitude, fix_position.longitude), (msg.latitude, msg.longitude))
-        bear = bearing((fix_position.latitude, fix_position.longitude), (msg.latitude, msg.longitude))
-        dist_msg.data = dist
-        bear_msg.data = bear
+        rad_msg = Float32Stamped()
+        deg_msg = Float32Stamped()
+        dist_msg.header = rad_msg.header = deg_msg.header = msg.header
+        self.distance = distance((fix_position.latitude, fix_position.longitude), (msg.latitude, msg.longitude))
+        self.radians, self.degrees = bearing((fix_position.latitude, fix_position.longitude), (msg.latitude, msg.longitude))
+        dist_msg.data = self.distance
+        rad_msg.data = self.radians
+        deg_msg.data = self.degrees
         self.dot_pub.publish(fix_position)
         self.dist_pub.publish(dist_msg)
-        self.angle_pub.publish(bear_msg)
+        self.rad_pub.publish(rad_msg)
+        self.deg_pub.publish(deg_msg)
 
         odom_msg = Odometry()
         odom_msg.header = msg.header
         odom_msg.header.frame_id = "odom"
         odom_msg.child_frame_id = "base_link"
-        odom_msg.pose.pose.position.x = dist * math.cos(bear)
-        odom_msg.pose.pose.position.y = dist * math.sin(bear)
+        odom_msg.pose.pose.position.x = self.distance * math.cos(self.radians)
+        odom_msg.pose.pose.position.y = self.distance * math.sin(self.radians)
         odom_msg.pose.pose.position.z = 0.0
         odom_msg.pose.pose.orientation.x = 0.0
         odom_msg.pose.pose.orientation.y = 0.0

@@ -4,7 +4,7 @@ from sensor_msgs.msg import NavSatFix
 from rclpy.node import Node
 from handy_msgs.msg import Float32Stamped
 from nav_msgs.msg import Odometry
-from handy_msgs.srv import WGS, UTM
+from handy_msgs.srv import WGS
 from example_interfaces.srv import Trigger
 import numpy as np
 

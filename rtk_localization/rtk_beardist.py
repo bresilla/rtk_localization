@@ -31,6 +31,11 @@ def bearing(coord1, coord2):
     radians = math.pi - radians
     return radians, bearing
 
+def odom_distance(odom1, odom2):
+    x1, y1 = odom1.pose.pose.position.x, odom1.pose.pose.position.y
+    x2, y2 = odom2.pose.pose.position.x, odom2.pose.pose.position.y
+    return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+
 class RTKBeardist(Node):
     def __init__(self, args):
         super().__init__("rtk_beardist")
@@ -52,6 +57,17 @@ class RTKBeardist(Node):
         self.tmp_srv = self.create_service(Trigger, '/rtk/cur_set', self.cur_set)
         self.fix_srv = self.create_service(WGS, '/rtk/fix_set', self.fix_set)
         self.cli = self.create_client(Trigger, '/rtk/transforms')
+
+        self.declare_parameter('delta_threshold', 0.01)
+        self.delta_threshold = self.get_parameter('delta_threshold').value
+        self._parameter_callback = self.create_timer(1.0, self.parameter_callback)
+
+    def parameter_callback(self):
+        new_value = self.get_parameter('delta_threshold').value
+        if new_value != self.delta_threshold:
+            self.get_logger().info(f"delta_threshold changed from {self.delta_threshold} to {new_value}")
+            self.delta_threshold = new_value
+
 
     def gps_callback(self, msg):
         # msg.header.frame_id = "rtk"
@@ -81,16 +97,16 @@ class RTKBeardist(Node):
         deg_msg.data = self.degrees
         self.rad_pub.publish(rad_msg)
 
+        self.cur_odom = Odometry()
+        self.cur_odom.header = msg.header
+        self.cur_odom.pose.pose.position.x = self.distance * math.cos(self.radians)
+        self.cur_odom.pose.pose.position.y = self.distance * math.sin(self.radians)
 
-        odom_msg = Odometry()
-        odom_msg.header = msg.header
-        odom_msg.pose.pose.position.x = self.distance * math.cos(self.radians)
-        odom_msg.pose.pose.position.y = self.distance * math.sin(self.radians)
-
-        if self.distance >= self.delta:
-            self.delta = self.distance + 0.05
+        self.curr_pub.publish(self.cur_odom)
+        if odom_distance(self.cur_odom, self.pre_odom) > self.delta_threshold:
+            self.delta = odom_distance(self.cur_odom, self.pre_odom) + self.delta_threshold
             self.prev_pub.publish(self.pre_odom)
-            self.pre_odom = odom_msg
+            self.pre_odom = self.cur_odom
 
     def cur_set(self, request, response):
         self.get_logger().info('FIX SET TO CURRENT POSITION')

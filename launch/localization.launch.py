@@ -6,8 +6,7 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     return LaunchDescription([
-        DeclareLaunchArgument('param1', default_value='default_value1', description='Description of param1'),
-        DeclareLaunchArgument('param2', default_value='default_value2', description='Description of param2'),
+        DeclareLaunchArgument('delta_threshold', default_value='0.01', description='Threshold for delta'),
 
         # Node(
         #     package='tf2_ros',
@@ -35,20 +34,18 @@ def generate_launch_description():
             executable='rtk_transform',
             name='rtk_transform',
             output='screen',
-            parameters=[{'param2': LaunchConfiguration('param2')}],
         ),
         Node(
             package='rtk_localization',
             executable='rtk_beardist',
             name='rtk_beardist',
             output='screen',
-            parameters=[{'param2': LaunchConfiguration('param2')}],
+            parameters=[{'delta_threshold': LaunchConfiguration('delta_threshold')}],
         ),
         Node(
             package='rtk_localization',
             executable='rtk_odometry',
             name='rtk_odometry',
             output='screen',
-            parameters=[{'param2': LaunchConfiguration('param2')}],
         ),
     ])

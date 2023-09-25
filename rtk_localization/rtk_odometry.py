@@ -3,7 +3,6 @@ import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from example_interfaces.srv import Trigger
-from handy_msgs.srv import WGS, UTM
 
 def quaternion_to_euler(q):
     (x, y, z, w) = (q.x, q.y, q.z, q.w)
@@ -25,6 +24,7 @@ class RTKBeardist(Node):
         super().__init__("rtk_odometry")
         self.get_logger().info('INITIALIZING RTK ODOMETRY')
         self.odom_odom = self.odom_map = Odometry()
+        self.prev_val = 0.0
 
         self.odom_pub = self.create_publisher(Odometry, "/rtk/odom", 10)
         self.odom_timer = self.create_timer(0.01, self.odom_callback)
@@ -35,9 +35,10 @@ class RTKBeardist(Node):
         self.srv = self.create_service(Trigger, '/rtk/transforms', self.transforms)
 
     def sync_message(self, msg=None):
-        self.odom_odom = msg
         rad, deg = quaternion_to_euler(msg.pose.pose.orientation)
-        print(f"rad: {rad}, deg: {deg}")
+        if 135 < abs(self.prev_val - deg) < 45: return
+        self.odom_odom = msg
+        self.prev_val = deg
 
     def map_callback(self, msg=None):
         # self.get_logger().info('PUBLISHING MAP')

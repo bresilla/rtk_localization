@@ -28,11 +28,12 @@ class RTKBeardist(Node):
         self.sub.registerCallback(self.sync_message)
 
         self.map_timer = self.create_timer(10.0, self.map_callback)
-        self.odom_timer = self.create_timer(1.0, self.odom_callback)
+        self.odom_timer = self.create_timer(0.01, self.odom_callback)
 
         self.srv = self.create_service(Trigger, '/rtk/transforms', self.transforms)
 
     def sync_message(self, curr, dist, bear, prev):
+        self.get_logger().info('SYNCING MESSAGE')
         self.odom_odom.header = curr.header
         self.odom_odom.pose.pose.position.x = dist.data * math.cos(bear.data)
         self.odom_odom.pose.pose.position.y = dist.data * math.sin(bear.data)
@@ -43,12 +44,13 @@ class RTKBeardist(Node):
         self.odom_odom.pose.pose.orientation.w = 1.0
 
     def map_callback(self, msg=None):
+        # self.get_logger().info('PUBLISHING MAP')
         self.odom_map.header = self.odom_odom.header
         self.map_pub.publish(self.odom_map)
 
     def odom_callback(self, msg=None):
+        # self.get_logger().info('PUBLISHING ODOM')
         self.odom_pub.publish(self.odom_odom)
-
 
     def transforms(self, request, response):
         response.message = "TRANSFORMS SET"

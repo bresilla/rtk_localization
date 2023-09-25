@@ -10,63 +10,52 @@ from handy_msgs.srv import WGS, UTM
 import time
 import message_filters
 
-def distance(coord1, coord2):
-    radius_earth = 6_367_449
-    lat1, lon1 = map(math.radians, coord1)
-    lat2, lon2 = map(math.radians, coord2)
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-    distance = radius_earth * c
-    return distance
-
-def bearing(coord1, coord2):
-    lat1, lon1 = math.radians(coord1[0]), math.radians(coord1[1])
-    lat2, lon2 = math.radians(coord2[0]), math.radians(coord2[1])
-    diffLong = lon2 - lon1
-    x = math.sin(diffLong) * math.cos(lat2)
-    y = math.cos(lat1) * math.sin(lat2) - (math.sin(lat1) * math.cos(lat2) * math.cos(diffLong))
-    initial_bearing = math.atan2(x, y)
-    initial_bearing = math.degrees(initial_bearing)
-    bearing = (initial_bearing + 360) % 360
-    bearing = math.radians(bearing)
-    bearing = math.pi - bearing
-    return bearing
-
 class RTKBeardist(Node):
     def __init__(self, args):
         super().__init__("rtk_odometry")
-        self.gps_sub = message_filters.Subscriber(self, NavSatFix, "/rtk/fix")
-        self.dist_sub = message_filters.Subscriber(self, Float32Stamped, "/rtk/distance")
-        self.rad_sub = message_filters.Subscriber(self, Float32Stamped, "/rtk/radians")
-        self.deg_sub = message_filters.Subscriber(self, Float32Stamped, "/rtk/degrees")
-        self.gps_sub = message_filters.ApproximateTimeSynchronizer(
-            [
-                self.gps_sub, 
-                self.dist_sub, 
-                self.rad_sub, 
-                self.deg_sub
-            ], 10, slop=10
-        )
-        self.gps_sub.registerCallback(self.message_callback)
-        self.odom_pub = self.create_publisher(Odometry, "/rtk/odomm", 10)
-        self.get_logger().info('MESSAGE CALLBACK')
+        self.get_logger().info('INITIALIZING RTK ODOMETRY')
+        self.odom_odom = self.odom_map = Odometry()
 
-    def message_callback(self, fix, dist, rad, deg):
-        odom_msg = Odometry()
-        odom_msg.header = fix.header
-        odom_msg.header.frame_id = "odom"
-        odom_msg.child_frame_id = "base_link"
-        odom_msg.pose.pose.position.x = dist.data * math.cos(rad.data)
-        odom_msg.pose.pose.position.y = dist.data * math.sin(rad.data)
-        odom_msg.pose.pose.position.z = 0.0
-        odom_msg.pose.pose.orientation.x = 0.0
-        odom_msg.pose.pose.orientation.y = 0.0
-        odom_msg.pose.pose.orientation.z = 0.0
-        odom_msg.pose.pose.orientation.w = 1.0
-        self.odom_pub.publish(odom_msg)
-        odom_position = odom_msg
+        self.odom_pub = self.create_publisher(Odometry, "/rtk/odom", 10)
+        self.map_pub = self.create_publisher(Odometry, "/rtk/map", 10)
+
+        self.curr_sub = message_filters.Subscriber(self, NavSatFix, "/rtk/curr")
+        self.prev_sub = message_filters.Subscriber(self, NavSatFix, "/rtk/tick")
+        self.dist_sub = message_filters.Subscriber(self, Float32Stamped, "/rtk/distance")
+        self.bear_sub = message_filters.Subscriber(self, Float32Stamped, "/rtk/radians")
+
+        self.sub = message_filters.TimeSynchronizer([self.curr_sub, self.dist_sub, self.bear_sub, self.prev_sub], 10)
+        self.sub.registerCallback(self.sync_message)
+
+        self.map_timer = self.create_timer(10.0, self.map_callback)
+        self.odom_timer = self.create_timer(1.0, self.odom_callback)
+
+        self.srv = self.create_service(Trigger, '/rtk/transforms', self.transforms)
+
+    def sync_message(self, dot, dist, bear, tick):
+        self.odom_odom.header = dot.header
+        self.odom_odom.pose.pose.position.x = dist.data * math.cos(bear.data)
+        self.odom_odom.pose.pose.position.y = dist.data * math.sin(bear.data)
+        self.odom_odom.pose.pose.position.z = 0.0
+        self.odom_odom.pose.pose.orientation.x = 0.0
+        self.odom_odom.pose.pose.orientation.y = 0.0
+        self.odom_odom.pose.pose.orientation.z = 0.0
+        self.odom_odom.pose.pose.orientation.w = 1.0
+
+    def map_callback(self, msg=None):
+        self.odom_map.header = self.odom_odom.header
+        self.map_pub.publish(self.odom_map)
+
+    def odom_callback(self, msg=None):
+        self.odom_pub.publish(self.odom_odom)
+
+
+    def transforms(self, request, response):
+        response.message = "TRANSFORMS SET"
+        self.odom_callback()
+        self.map_callback()
+        return response
+
 
 def main(args=None):
     rclpy.init(args=args)

@@ -10,23 +10,13 @@ from handy_msgs.srv import UTM
 class Transformerr(Node):
     def __init__(self, args):
         super().__init__("rtk_transform")
-        self.static_transform = Odometry()
         self.tf_dyna_broadcaster = TransformBroadcaster(self)
         self.tf_stat_broadcaster = StaticTransformBroadcaster(self)
         self.odom_sub = self.create_subscription(Odometry, "/rtk/odom", self.dyna_transform, 10)
-        self.srv = self.create_service(UTM, '/rtk/map2odom', self.request_stat)
-        self.timer = self.create_timer(10.0, self.stat_transform)
-        self.stat_transform()
+        self.map_sub = self.create_subscription(Odometry, "/rtk/map", self.stat_transform, 10)
+        self.stat_transform(Odometry())
 
-    def request_stat(self, request, response):
-        self.static_transform = request.utm_pose
-        response.message = "Static transform reseted"
-        self.stat_transform()
-        self.get_logger().info(f'STATIC TRANSFORM SET')
-        return response
-
-    def stat_transform(self):
-        msg = self.static_transform
+    def stat_transform(self, msg=None):
         stat_t = TransformStamped()
         stat_t.header.stamp = self.get_clock().now().to_msg()
         stat_t.header.frame_id = "map"

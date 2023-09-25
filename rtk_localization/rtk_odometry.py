@@ -19,8 +19,8 @@ class RTKBeardist(Node):
         self.odom_pub = self.create_publisher(Odometry, "/rtk/odom", 10)
         self.map_pub = self.create_publisher(Odometry, "/rtk/map", 10)
 
-        self.curr_sub = message_filters.Subscriber(self, NavSatFix, "/rtk/curr")
-        self.prev_sub = message_filters.Subscriber(self, NavSatFix, "/rtk/tick")
+        self.curr_sub = message_filters.Subscriber(self, Odometry, "/rtk/curr")
+        self.prev_sub = message_filters.Subscriber(self, Odometry, "/rtk/prev")
         self.dist_sub = message_filters.Subscriber(self, Float32Stamped, "/rtk/distance")
         self.bear_sub = message_filters.Subscriber(self, Float32Stamped, "/rtk/radians")
 
@@ -32,8 +32,8 @@ class RTKBeardist(Node):
 
         self.srv = self.create_service(Trigger, '/rtk/transforms', self.transforms)
 
-    def sync_message(self, dot, dist, bear, tick):
-        self.odom_odom.header = dot.header
+    def sync_message(self, curr, dist, bear, prev):
+        self.odom_odom.header = curr.header
         self.odom_odom.pose.pose.position.x = dist.data * math.cos(bear.data)
         self.odom_odom.pose.pose.position.y = dist.data * math.sin(bear.data)
         self.odom_odom.pose.pose.position.z = 0.0

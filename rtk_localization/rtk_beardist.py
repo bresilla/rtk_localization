@@ -3,6 +3,7 @@ import rclpy
 from sensor_msgs.msg import NavSatFix
 from rclpy.node import Node
 from handy_msgs.msg import Float32Stamped
+from nav_msgs.msg import Odometry
 from handy_msgs.srv import WGS, UTM
 from example_interfaces.srv import Trigger
 
@@ -35,13 +36,15 @@ class RTKBeardist(Node):
         super().__init__("rtk_beardist")
         self.get_logger().info('INITIALIZING RTK BEARDIST')
         self.distance = self.radians = self.degrees = 0.0
-        self.dot_position = self.cur_position = self.tick_position = None
+        self.dot_position = self.cur_position = None
+        self.pre_odom = self.cur_odom = Odometry()
         self.delta = 0.0
 
         self.gps_sub = self.create_subscription(NavSatFix, "/gps/fix", self.gps_callback, 10)
-        self.curr_pub = self.create_publisher(NavSatFix, "/rtk/curr", 10)
-        self.prev_pub = self.create_publisher(NavSatFix, "/rtk/prev ", 10)
+        self.fix_pub = self.create_publisher(NavSatFix, "/rtk/fix", 10)
         self.dot_pub = self.create_publisher(NavSatFix, "/rtk/dot", 10)
+        self.curr_pub = self.create_publisher(Odometry, "/rtk/curr", 10)
+        self.prev_pub = self.create_publisher(Odometry, "/rtk/prev", 10)
         self.dist_pub = self.create_publisher(Float32Stamped, "/rtk/distance", 10)
         self.rad_pub = self.create_publisher(Float32Stamped, "/rtk/radians", 10)
         # self.deg_pub = self.create_publisher(Float32Stamped, "/rtk/degrees", 10)
@@ -53,35 +56,41 @@ class RTKBeardist(Node):
     def gps_callback(self, msg):
         # msg.header.frame_id = "rtk"
         if self.dot_position is None: self.dot_position = msg
-        if self.tick_position is None: self.tick_position = msg
         self.cur_position = msg
+
+        self.fix_pub.publish(NavSatFix(header=msg.header, latitude=msg.latitude, longitude=msg.longitude))
+        self.dot_pub.publish(NavSatFix(header=msg.header, latitude=self.dot_position.latitude, longitude=self.dot_position.longitude))
+
         dist_msg = Float32Stamped()
-        rad_msg = Float32Stamped()
-        deg_msg = Float32Stamped()
-        dist_msg.header = rad_msg.header = deg_msg.header = msg.header
+        dist_msg.header = msg.header
         self.distance = distance(
             (self.dot_position.latitude, self.dot_position.longitude), 
             (msg.latitude, msg.longitude)
         )
+        dist_msg.data = self.distance
+        self.dist_pub.publish(dist_msg)
+
+        rad_msg = Float32Stamped()
+        deg_msg = Float32Stamped()
+        rad_msg.header = deg_msg.header = msg.header
         self.radians, self.degrees = bearing(
             (self.dot_position.latitude, self.dot_position.longitude), 
             (msg.latitude, msg.longitude)
         )
+        rad_msg.data = self.radians
+        deg_msg.data = self.degrees
+        self.rad_pub.publish(rad_msg)
+
+
+        odom_msg = Odometry()
+        odom_msg.header = msg.header
+        odom_msg.pose.pose.position.x = self.distance * math.cos(self.radians)
+        odom_msg.pose.pose.position.y = self.distance * math.sin(self.radians)
 
         if self.distance >= self.delta:
             self.delta = self.distance + 0.05
-            self.prev_pub.publish(self.tick_position)
-            self.tick_position = msg
-
-        dist_msg.data = self.distance
-        rad_msg.data = self.radians
-        deg_msg.data = self.degrees
-        self.curr_pub.publish(msg)
-        self.dot_position.header = msg.header
-        self.dot_pub.publish(self.dot_position)
-        self.dist_pub.publish(dist_msg)
-        self.rad_pub.publish(rad_msg)
-        # self.deg_pub.publish(deg_msg)
+            self.prev_pub.publish(self.pre_odom)
+            self.pre_odom = odom_msg
 
     def cur_set(self, request, response):
         self.get_logger().info('FIX SET TO CURRENT POSITION')

@@ -3,6 +3,8 @@ import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from example_interfaces.srv import Trigger
+from nav_msgs.msg import Path
+from geometry_msgs.msg import PoseStamped
 
 def quaternion_to_euler(q):
     (x, y, z, w) = (q.x, q.y, q.z, q.w)
@@ -25,11 +27,14 @@ class RTKBeardist(Node):
         self.get_logger().info('INITIALIZING RTK ODOMETRY')
         self.odom_odom = self.odom_map = Odometry()
         self.prev_val = 0.0
-        
+        self.path = Path()
+
         self.odom_pub = self.create_publisher(Odometry, "/rtk/odom", 10)
         self.odom_timer = self.create_timer(0.01, self.odom_callback)
         self.map_pub = self.create_publisher(Odometry, "/rtk/map", 10)
         self.map_timer = self.create_timer(10.0, self.map_callback)
+        self.path_pub = self.create_publisher(Path, "/rtk/path", 10)
+        self.path_timer = self.create_timer(2.0, self.path_callback)
 
 
         self.curr_sub = self.create_subscription(Odometry, "/rtk/curr", self.sync_message, 10)
@@ -41,6 +46,12 @@ class RTKBeardist(Node):
         self.odom_odom = msg
         self.prev_val = deg
 
+        pose = PoseStamped()
+        pose.header = self.odom_odom.header
+        pose.pose.position.x = self.odom_odom.pose.pose.position.x
+        pose.pose.position.y = self.odom_odom.pose.pose.position.y
+        self.path.poses.append(pose)
+
     def map_callback(self, msg=None):
         # self.get_logger().info('PUBLISHING MAP')
         self.odom_map.header = self.odom_odom.header
@@ -49,6 +60,12 @@ class RTKBeardist(Node):
     def odom_callback(self, msg=None):
         # self.get_logger().info('PUBLISHING ODOM')
         self.odom_pub.publish(self.odom_odom)
+    
+    def path_callback(self, msg=None):
+        # self.get_logger().info('PUBLISHING PATH')
+        self.path.header = self.odom_odom.header
+        self.path.header.frame_id = "map"
+        self.path_pub.publish(self.path)
 
     def transforms(self, request, response):
         response.message = "TRANSFORMS SET"

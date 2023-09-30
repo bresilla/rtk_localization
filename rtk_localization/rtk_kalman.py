@@ -6,8 +6,6 @@ from handy_msgs.msg import Float32Stamped
 from nav_msgs.msg import Odometry
 import transforms3d.quaternions as quaternions
 import message_filters
-from nav_msgs.msg import Path
-from geometry_msgs.msg import PoseStamped
 
 
 class KallmanFilter():
@@ -33,8 +31,7 @@ class RTKBeardist(Node):
         self.get_logger().info('INITIALIZING RTK KALMAN')
         self.pre_odom = self.cur_odom = Odometry()
         self.quaternion = [1.0, 0.0, 0.0, 0.0]
-        self.kf = KallmanFilter(0.0, 1.0, 0.009, 0.2)
-        self.path = Path()
+        self.kf = KallmanFilter(0.0, 1.0, 0.005, 0.2)
 
         self._gps_sub = message_filters.Subscriber(self, NavSatFix, '/rtk/fix')
         self._dot_sub = message_filters.Subscriber(self, NavSatFix, '/rtk/dot')
@@ -45,7 +42,6 @@ class RTKBeardist(Node):
         self.rad_pub = self.create_publisher(Float32Stamped, "/rtk/radians", 10)
         self.deg_pub = self.create_publisher(Float32Stamped, "/rtk/degrees", 10)
         self.kall_pub = self.create_publisher(Float32Stamped, '/rtk/kallman', 10)
-        self.path_pub = self.create_publisher(Path, "/rtk/path", 10)
 
 
         self._syn_pub = message_filters.ApproximateTimeSynchronizer(
@@ -74,7 +70,6 @@ class RTKBeardist(Node):
         self.cur_odom.pose.pose.orientation.x = self.quaternion[1]
         self.cur_odom.pose.pose.orientation.y = self.quaternion[2]
         self.cur_odom.pose.pose.orientation.z = self.quaternion[3]
-        self.path.header = fix.header
 
         if self.odom_distance(self.cur_odom, self.pre_odom) > self.delta_threshold:
             x = self.cur_odom.pose.pose.position.x - self.pre_odom.pose.pose.position.x
@@ -93,12 +88,6 @@ class RTKBeardist(Node):
             kall_msg.data = kally
             self.kall_pub.publish(kall_msg)
 
-            pose = PoseStamped()
-            pose.header = self.cur_odom.header
-            pose.pose.position.x = self.cur_odom.pose.pose.position.x
-            pose.pose.position.y = self.cur_odom.pose.pose.position.y
-            self.path.poses.append(pose)
-
             self.quaternion = quaternions.axangle2quat([0, 0, 1], kally)
             self.cur_odom.pose.pose.orientation.w = self.quaternion[0]
             self.cur_odom.pose.pose.orientation.x = self.quaternion[1]
@@ -106,7 +95,6 @@ class RTKBeardist(Node):
             self.cur_odom.pose.pose.orientation.z = self.quaternion[3]
             self.pre_odom = self.cur_odom
         self.curr_pub.publish(self.cur_odom)
-        self.path_pub.publish(self.path)
 
     def odom_distance(self, odom1, odom2):
         x1, y1 = odom1.pose.pose.position.x, odom1.pose.pose.position.y

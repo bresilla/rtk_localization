@@ -154,7 +154,6 @@ class RTKBeardist(Node):
             self.cur_odom.pose.pose.orientation.z = self.quaternion[3]
             self.pre_odom = self.cur_odom
 
-
         self.curr_pub.publish(self.cur_odom)
 
 

@@ -34,7 +34,7 @@ class RTKBeardist(Node):
         self.get_logger().info('INITIALIZING RTK KALMAN')
         self.pre_odom = self.cur_odom = Odometry()
         self.quaternion = [1.0, 0.0, 0.0, 0.0]
-        self.kf = KallmanFilter(0.0, 1.0, 0.01, 0.1)
+        self.kf = KallmanFilter(0.0, 1.0, 0.009, 0.2)
 
         self._gps_sub = message_filters.Subscriber(self, NavSatFix, '/rtk/fix')
         self._dot_sub = message_filters.Subscriber(self, NavSatFix, '/rtk/dot')

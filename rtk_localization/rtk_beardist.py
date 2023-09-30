@@ -7,6 +7,7 @@ from nav_msgs.msg import Odometry
 from handy_msgs.srv import WGS
 from example_interfaces.srv import Trigger
 import numpy as np
+import transforms3d.quaternions as quaternions
 
 def distance(coord1, coord2):
     radius_earth = 6_367_449
@@ -37,12 +38,6 @@ def odom_distance(odom1, odom2):
     x2, y2 = odom2.pose.pose.position.x, odom2.pose.pose.position.y
     return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
-def euler_to_quaternion(yaw, pitch=1, roll=1):
-    qx = np.sin(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) - np.cos(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
-    qy = np.cos(roll/2) * np.sin(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.cos(pitch/2) * np.sin(yaw/2)
-    qz = np.cos(roll/2) * np.cos(pitch/2) * np.sin(yaw/2) - np.sin(roll/2) * np.sin(pitch/2) * np.cos(yaw/2)
-    qw = np.cos(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
-    return [qx, qy, qz, qw]
 
 class RTKBeardist(Node):
     def __init__(self, args):
@@ -50,33 +45,20 @@ class RTKBeardist(Node):
         self.get_logger().info('INITIALIZING RTK BEARDIST')
         self.distance = self.radians = self.degrees = 0.0
         self.dot_position = self.cur_position = None
-        self.pre_odom = self.cur_odom = Odometry()
 
-        self.gps_sub = self.create_subscription(NavSatFix, "/gps/fix", self.gps_callback, 10)
+        self.gps_sub = self.create_subscription(NavSatFix, "/fix", self.gps_callback, 10)
         self.fix_pub = self.create_publisher(NavSatFix, "/rtk/fix", 10)
         self.dot_pub = self.create_publisher(NavSatFix, "/rtk/dot", 10)
         self.curr_pub = self.create_publisher(Odometry, "/rtk/curr", 10)
         self.dist_pub = self.create_publisher(Float32Stamped, "/rtk/distance", 10)
-        self.rad_pub = self.create_publisher(Float32Stamped, "/rtk/radians", 10)
-        # self.deg_pub = self.create_publisher(Float32Stamped, "/rtk/degrees", 10)
+        self.bear_pub = self.create_publisher(Float32Stamped, "/rtk/bearing", 10)
 
         self.tmp_srv = self.create_service(Trigger, '/rtk/cur_set', self.cur_set)
         self.fix_srv = self.create_service(WGS, '/rtk/fix_set', self.fix_set)
         self.cli = self.create_client(Trigger, '/rtk/transforms')
 
-        self.declare_parameter('delta_threshold', 0.01)
-        self.delta_threshold = self.get_parameter('delta_threshold').value
-        self._parameter_callback = self.create_timer(1.0, self.parameter_callback)
-
-    def parameter_callback(self):
-        new_value = self.get_parameter('delta_threshold').value
-        if new_value != self.delta_threshold:
-            self.get_logger().info(f"delta_threshold changed from {self.delta_threshold} to {new_value}")
-            self.delta_threshold = new_value
-
 
     def gps_callback(self, msg):
-        # msg.header.frame_id = "rtk"
         if self.dot_position is None: self.dot_position = msg
         self.cur_position = msg
 
@@ -92,33 +74,15 @@ class RTKBeardist(Node):
         dist_msg.data = self.distance
         self.dist_pub.publish(dist_msg)
 
-        rad_msg = Float32Stamped()
-        deg_msg = Float32Stamped()
-        rad_msg.header = deg_msg.header = msg.header
+        bear_msg = Float32Stamped()
+        bear_msg.header = msg.header
         self.radians, self.degrees = bearing(
             (self.dot_position.latitude, self.dot_position.longitude), 
             (msg.latitude, msg.longitude)
         )
-        rad_msg.data = self.radians
-        deg_msg.data = self.degrees
-        self.rad_pub.publish(rad_msg)
+        bear_msg.data = self.radians
+        self.bear_pub.publish(bear_msg)
 
-        self.cur_odom = Odometry()
-        self.cur_odom.header = msg.header
-        self.cur_odom.pose.pose.position.x = self.distance * math.cos(self.radians)
-        self.cur_odom.pose.pose.position.y = self.distance * math.sin(self.radians)
-
-        if odom_distance(self.cur_odom, self.pre_odom) > self.delta_threshold:
-            x = self.cur_odom.pose.pose.position.x - self.pre_odom.pose.pose.position.x
-            y = self.cur_odom.pose.pose.position.y - self.pre_odom.pose.pose.position.y
-            radians = math.atan2(y, x)
-            quaternion = euler_to_quaternion(radians)
-            self.cur_odom.pose.pose.orientation.x = quaternion[0]
-            self.cur_odom.pose.pose.orientation.y = quaternion[1]
-            self.cur_odom.pose.pose.orientation.z = quaternion[2]
-            self.cur_odom.pose.pose.orientation.w = quaternion[3]
-            self.curr_pub.publish(self.cur_odom)
-            self.pre_odom = self.cur_odom
 
     def cur_set(self, request, response):
         self.get_logger().info('FIX SET TO CURRENT POSITION')

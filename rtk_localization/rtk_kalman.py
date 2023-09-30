@@ -52,15 +52,15 @@ class RTKBeardist(Node):
         )
         self._syn_pub.registerCallback(self.sync_callback)
 
-        self.declare_parameter('delta_threshold', 0.1)
-        self.delta_threshold = self.get_parameter('delta_threshold').value
+        self.declare_parameter('delta', 0.1)
+        self.delta_threshold = self.get_parameter('delta').value
         self._parameter_callback = self.create_timer(1.0, self.parameter_callback)
 
 
     def parameter_callback(self):
-        new_value = self.get_parameter('delta_threshold').value
+        new_value = self.get_parameter('delta').value
         if new_value != self.delta_threshold:
-            self.get_logger().info(f"delta_threshold changed from {self.delta_threshold} to {new_value}")
+            self.get_logger().info(f"delta changed from {self.delta_threshold} to {new_value}")
             self.delta_threshold = new_value
 
 

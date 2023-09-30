@@ -45,7 +45,6 @@ class RTKBeardist(Node):
         self.get_logger().info('INITIALIZING RTK BEARDIST')
         self.distance = self.radians = self.degrees = 0.0
         self.dot_position = self.cur_position = None
-        self.pre_odom = self.cur_odom = Odometry()
 
         self.gps_sub = self.create_subscription(NavSatFix, "/fix", self.gps_callback, 10)
         self.fix_pub = self.create_publisher(NavSatFix, "/rtk/fix", 10)

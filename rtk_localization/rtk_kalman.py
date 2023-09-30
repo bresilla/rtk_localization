@@ -4,9 +4,6 @@ from sensor_msgs.msg import NavSatFix
 from rclpy.node import Node
 from handy_msgs.msg import Float32Stamped
 from nav_msgs.msg import Odometry
-from handy_msgs.srv import WGS
-from example_interfaces.srv import Trigger
-import numpy as np
 import transforms3d.quaternions as quaternions
 import message_filters
 
@@ -34,7 +31,7 @@ class RTKBeardist(Node):
         self.get_logger().info('INITIALIZING RTK KALMAN')
         self.pre_odom = self.cur_odom = Odometry()
         self.quaternion = [1.0, 0.0, 0.0, 0.0]
-        self.kf = KallmanFilter(0.0, 1.0, 0.009, 0.2)
+        self.kf = KallmanFilter(0.0, 1.0, 0.005, 0.2)
 
         self._gps_sub = message_filters.Subscriber(self, NavSatFix, '/rtk/fix')
         self._dot_sub = message_filters.Subscriber(self, NavSatFix, '/rtk/dot')

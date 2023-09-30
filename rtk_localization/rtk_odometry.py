@@ -46,6 +46,12 @@ class RTKBeardist(Node):
         self.odom_odom = msg
         self.prev_val = deg
 
+        pose = PoseStamped()
+        pose.header = self.odom_odom.header
+        pose.pose.position.x = self.odom_odom.pose.pose.position.x
+        pose.pose.position.y = self.odom_odom.pose.pose.position.y
+        self.path.poses.append(pose)
+
     def map_callback(self, msg=None):
         # self.get_logger().info('PUBLISHING MAP')
         self.odom_map.header = self.odom_odom.header
@@ -58,10 +64,7 @@ class RTKBeardist(Node):
     def path_callback(self, msg=None):
         # self.get_logger().info('PUBLISHING PATH')
         self.path.header = self.odom_odom.header
-        pose = PoseStamped()
-        pose.header = self.odom_odom.header
-        pose.pose = self.odom_odom.pose.pose
-        self.path.poses.append(pose)
+        self.path.header.frame_id = "map"
         self.path_pub.publish(self.path)
 
     def transforms(self, request, response):

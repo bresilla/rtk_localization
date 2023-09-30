@@ -39,23 +39,6 @@ def odom_distance(odom1, odom2):
     return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
 
-class KallmanFilter():
-    def __init__(self, estimated_state=0.0, estimated_error=1.0, process_noise=0.01, measurement_noise=0.1):
-        self.estimated_state = estimated_state  # Initial state estimate
-        self.estimated_error = estimated_error  # Initial error estimate
-        self.process_noise = process_noise   # Process noise (adjust as needed)
-        self.measurement_noise = measurement_noise # Measurement noise (adjust as needed)
-    
-    def step(self, value):
-        # Prediction step
-        predicted_state = self.estimated_state
-        predicted_error = self.estimated_error + self.process_noise
-        # Update step
-        kalman_gain = predicted_error / (predicted_error + self.measurement_noise)
-        self.estimated_state = predicted_state + kalman_gain * (value - predicted_state)
-        self.estimated_error = (1 - kalman_gain) * predicted_error
-        return self.estimated_state
-
 class RTKBeardist(Node):
     def __init__(self, args):
         super().__init__("rtk_beardist")
@@ -63,38 +46,20 @@ class RTKBeardist(Node):
         self.distance = self.radians = self.degrees = 0.0
         self.dot_position = self.cur_position = None
         self.pre_odom = self.cur_odom = Odometry()
-        self.quaternion = [1.0, 0.0, 0.0, 0.0]
-        self.kf = KallmanFilter(0.0, 1.0, 0.01, 0.1)
 
         self.gps_sub = self.create_subscription(NavSatFix, "/fix", self.gps_callback, 10)
         self.fix_pub = self.create_publisher(NavSatFix, "/rtk/fix", 10)
         self.dot_pub = self.create_publisher(NavSatFix, "/rtk/dot", 10)
         self.curr_pub = self.create_publisher(Odometry, "/rtk/curr", 10)
         self.dist_pub = self.create_publisher(Float32Stamped, "/rtk/distance", 10)
-        self.abs_rad_pub = self.create_publisher(Float32Stamped, "/rtk/radians_abs", 10)
-        self.abs_deg_pub = self.create_publisher(Float32Stamped, "/rtk/degrees_abs", 10)
-        self.rad_pub = self.create_publisher(Float32Stamped, "/rtk/radians", 10)
-        self.deg_pub = self.create_publisher(Float32Stamped, "/rtk/degrees", 10)
-        self.kall_pub = self.create_publisher(Float32Stamped, '/rtk/kallman', 10)
+        self.bear_pub = self.create_publisher(Float32Stamped, "/rtk/bearing", 10)
 
         self.tmp_srv = self.create_service(Trigger, '/rtk/cur_set', self.cur_set)
         self.fix_srv = self.create_service(WGS, '/rtk/fix_set', self.fix_set)
         self.cli = self.create_client(Trigger, '/rtk/transforms')
 
-        self.declare_parameter('delta_threshold', 0.1)
-        self.delta_threshold = self.get_parameter('delta_threshold').value
-        self._parameter_callback = self.create_timer(1.0, self.parameter_callback)
-
-
-    def parameter_callback(self):
-        new_value = self.get_parameter('delta_threshold').value
-        if new_value != self.delta_threshold:
-            self.get_logger().info(f"delta_threshold changed from {self.delta_threshold} to {new_value}")
-            self.delta_threshold = new_value
-
 
     def gps_callback(self, msg):
-        # msg.header.frame_id = "rtk"
         if self.dot_position is None: self.dot_position = msg
         self.cur_position = msg
 
@@ -110,52 +75,14 @@ class RTKBeardist(Node):
         dist_msg.data = self.distance
         self.dist_pub.publish(dist_msg)
 
-        abs_rad_msg = abs_deg_msg = Float32Stamped()
-        abs_rad_msg.header = abs_deg_msg.header = msg.header
+        bear_msg = Float32Stamped()
+        bear_msg.header = msg.header
         self.radians, self.degrees = bearing(
             (self.dot_position.latitude, self.dot_position.longitude), 
             (msg.latitude, msg.longitude)
         )
-        abs_rad_msg.data = self.radians
-        abs_deg_msg.data = self.degrees
-        self.abs_rad_pub.publish(abs_rad_msg)
-        self.abs_deg_pub.publish(abs_deg_msg)
-
-        self.cur_odom = Odometry()
-        self.cur_odom.header = msg.header
-        self.cur_odom.pose.pose.position.x = self.distance * math.cos(self.radians)
-        self.cur_odom.pose.pose.position.y = self.distance * math.sin(self.radians)
-        self.cur_odom.pose.pose.orientation.w = self.quaternion[0]
-        self.cur_odom.pose.pose.orientation.x = self.quaternion[1]
-        self.cur_odom.pose.pose.orientation.y = self.quaternion[2]
-        self.cur_odom.pose.pose.orientation.z = self.quaternion[3]
-
-        if odom_distance(self.cur_odom, self.pre_odom) > self.delta_threshold:
-            x = self.cur_odom.pose.pose.position.x - self.pre_odom.pose.pose.position.x
-            y = self.cur_odom.pose.pose.position.y - self.pre_odom.pose.pose.position.y
-            rad_msg = deg_msg = kall_msg = Float32Stamped()
-
-            radians = math.atan2(y, x)
-            rad_msg.data = radians
-            self.rad_pub.publish(rad_msg)
-
-            degrees = math.degrees(radians)
-            deg_msg.data = degrees
-            self.deg_pub.publish(deg_msg)
-
-            kally = self.kf.step(radians)
-            kall_msg.data = kally
-            self.kall_pub.publish(kall_msg)
-
-            self.quaternion = quaternions.axangle2quat([0, 0, 1], kally)
-            self.cur_odom.pose.pose.orientation.w = self.quaternion[0]
-            self.cur_odom.pose.pose.orientation.x = self.quaternion[1]
-            self.cur_odom.pose.pose.orientation.y = self.quaternion[2]
-            self.cur_odom.pose.pose.orientation.z = self.quaternion[3]
-            self.pre_odom = self.cur_odom
-
-
-        self.curr_pub.publish(self.cur_odom)
+        bear_msg.data = self.radians
+        self.bear_pub.publish(bear_msg)
 
 
     def cur_set(self, request, response):

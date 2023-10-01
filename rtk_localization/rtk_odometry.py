@@ -28,14 +28,14 @@ class RTKBeardist(Node):
         self.odom_odom = self.odom_map = Odometry()
         self.prev_val = 0.0
         self.path = Path()
+        self.path.header.frame_id = "map"
 
         self.odom_pub = self.create_publisher(Odometry, "/rtk/odom", 10)
-        self.odom_timer = self.create_timer(0.01, self.odom_callback)
+        self.odom_timer = self.create_timer(0.001, self.odom_callback)
         self.map_pub = self.create_publisher(Odometry, "/rtk/map", 10)
         self.map_timer = self.create_timer(10.0, self.map_callback)
         self.path_pub = self.create_publisher(Path, "/rtk/path", 10)
         self.path_timer = self.create_timer(2.0, self.path_callback)
-
 
         self.curr_sub = self.create_subscription(Odometry, "/rtk/curr", self.sync_message, 10)
         self.srv = self.create_service(Trigger, '/rtk/transforms', self.transforms)
@@ -64,7 +64,6 @@ class RTKBeardist(Node):
     def path_callback(self, msg=None):
         # self.get_logger().info('PUBLISHING PATH')
         self.path.header = self.odom_odom.header
-        self.path.header.frame_id = "map"
         self.path_pub.publish(self.path)
 
     def transforms(self, request, response):

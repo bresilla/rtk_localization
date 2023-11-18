@@ -27,11 +27,17 @@ setup(
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
+        # 'console_scripts': [
+        #     'rtk_transform = rtk_localization.rtk_transform:main',
+        #     'rtk_beardist = rtk_localization.rtk_beardist:main',
+        #     'rtk_odometry = rtk_localization.rtk_odometry:main',
+        #     'rtk_kalman = rtk_localization.rtk_kalman:main',
+        # ],
         'console_scripts': [
-            'rtk_transform = rtk_localization.rtk_transform:main',
-            'rtk_beardist = rtk_localization.rtk_beardist:main',
-            'rtk_odometry = rtk_localization.rtk_odometry:main',
-            'rtk_kalman = rtk_localization.rtk_kalman:main',
+            'gps_fuse = rtk_localization.gps_fuse:main',
+            'gps_to_enu = rtk_localization.gps_to_enu:main',
+            'odometry = rtk_localization.odometry:main',
+            'transform = rtk_localization.transform:main',
         ],
         'launch.frontend.launch_extension': [
             'launch_ros = launch_ros'

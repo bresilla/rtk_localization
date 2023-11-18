@@ -8,12 +8,12 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('delta', default_value='0.1', description='Threshold for delta'),
 
-        # Node(
-        #     package='tf2_ros',
-        #     executable='static_transform_publisher',
-        #     output='screen',
-        #     arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'base_footprint'],
-        # ),
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            output='screen',
+            arguments=['0', '0', '0', '0', '0', '0', 'map', 'odom'],
+        ),
         # Node(
         #     package='tf2_ros',
         #     executable='static_transform_publisher',

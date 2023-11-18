@@ -23,39 +23,34 @@ def distance(coord1, coord2):
 def bearing(coord1, coord2):
     lat1, lon1 = math.radians(coord1[0]), math.radians(coord1[1])
     lat2, lon2 = math.radians(coord2[0]), math.radians(coord2[1])
-    diffLong = lon2 - lon1
+    diffLong = lon2 - lon1 
     x = math.sin(diffLong) * math.cos(lat2)
     y = math.cos(lat1) * math.sin(lat2) - (math.sin(lat1) * math.cos(lat2) * math.cos(diffLong))
     initial_bearing = math.atan2(x, y)
     initial_bearing = math.degrees(initial_bearing)
     bearing = (initial_bearing + 360) % 360
     radians = math.radians(bearing)
-    radians = math.pi - radians
     return radians, bearing
-
-def odom_distance(odom1, odom2):
-    x1, y1 = odom1.pose.pose.position.x, odom1.pose.pose.position.y
-    x2, y2 = odom2.pose.pose.position.x, odom2.pose.pose.position.y
-    return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
 
 class RTKBeardist(Node):
     def __init__(self, args):
         super().__init__("rtk_beardist")
         self.get_logger().info('INITIALIZING RTK BEARDIST')
-        self.distance = self.radians = self.degrees = 0.0
-        self.dot_position = self.cur_position = None
+        self.distance = 0.0
+        self.radians = 0.0
+        self.dot_position = None
+        self.cur_position = None
 
         self.gps_sub = self.create_subscription(NavSatFix, "/fix", self.gps_callback, 10)
         self.fix_pub = self.create_publisher(NavSatFix, "/rtk/fix", 10)
         self.dot_pub = self.create_publisher(NavSatFix, "/rtk/dot", 10)
-        self.curr_pub = self.create_publisher(Odometry, "/rtk/curr", 10)
         self.dist_pub = self.create_publisher(Float32Stamped, "/rtk/distance", 10)
         self.bear_pub = self.create_publisher(Float32Stamped, "/rtk/bearing", 10)
 
         self.tmp_srv = self.create_service(Trigger, '/rtk/cur_set', self.cur_set)
         self.fix_srv = self.create_service(WGS, '/rtk/fix_set', self.fix_set)
-        self.cli = self.create_client(Trigger, '/rtk/transforms')
+        self.cli = self.create_client(Trigger, '/rtk/set_reset')
 
 
     def gps_callback(self, msg):
@@ -76,7 +71,7 @@ class RTKBeardist(Node):
 
         bear_msg = Float32Stamped()
         bear_msg.header = msg.header
-        self.radians, self.degrees = bearing(
+        self.radians, _ = bearing(
             (self.dot_position.latitude, self.dot_position.longitude), 
             (msg.latitude, msg.longitude)
         )
@@ -103,6 +98,11 @@ class RTKBeardist(Node):
         while not self.cli.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('service not available, waiting again...')
         self.cli.call_async(cli_request)
+        # try:
+        #     self.cli.wait_for_service(timeout_sec=1.0)
+        #     self.cli.call_async(cli_request)
+        # except Exception as e:
+        #     self.get_logger().info(f"Service call failed {e}")
 
 
 def main(args=None):

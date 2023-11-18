@@ -7,11 +7,10 @@ from nav_msgs.msg import Odometry
 import transforms3d.quaternions as quaternions
 import message_filters
 
-
 class KallmanFilter():
-    def __init__(self, estimated_state=0.0, estimated_error=1.0, process_noise=0.01, measurement_noise=0.1):
-        self.estimated_state = estimated_state  # Initial state estimate
-        self.estimated_error = estimated_error  # Initial error estimate
+    def __init__(self, process_noise=0.01, measurement_noise=0.1):
+        self.estimated_state = 0.0  # Initial state estimate
+        self.estimated_error = 1.0  # Initial error estimate
         self.process_noise = process_noise   # Process noise (adjust as needed)
         self.measurement_noise = measurement_noise # Measurement noise (adjust as needed)
     
@@ -31,19 +30,17 @@ class RTKBeardist(Node):
         self.get_logger().info('INITIALIZING RTK KALMAN')
         self.pre_odom = self.cur_odom = Odometry()
         self.quaternion = [1.0, 0.0, 0.0, 0.0]
-        self.kf = KallmanFilter(0.0, 1.0, 0.005, 0.2)
-
-        self._gps_sub = message_filters.Subscriber(self, NavSatFix, '/rtk/fix')
-        self._dot_sub = message_filters.Subscriber(self, NavSatFix, '/rtk/dot')
-        self._dist_sub = message_filters.Subscriber(self, Float32Stamped, '/rtk/distance')
-        self._bear_sub = message_filters.Subscriber(self, Float32Stamped, '/rtk/bearing')
+        self.rad_filter = KallmanFilter(process_noise=0.005, measurement_noise=0.2)
        
         self.curr_pub = self.create_publisher(Odometry, "/rtk/curr", 10)
         self.rad_pub = self.create_publisher(Float32Stamped, "/rtk/radians", 10)
         self.deg_pub = self.create_publisher(Float32Stamped, "/rtk/degrees", 10)
         self.kall_pub = self.create_publisher(Float32Stamped, '/rtk/kallman', 10)
 
-
+        self._gps_sub = message_filters.Subscriber(self, NavSatFix, '/rtk/fix')
+        self._dot_sub = message_filters.Subscriber(self, NavSatFix, '/rtk/dot')
+        self._dist_sub = message_filters.Subscriber(self, Float32Stamped, '/rtk/distance')
+        self._bear_sub = message_filters.Subscriber(self, Float32Stamped, '/rtk/bearing')
         self._syn_pub = message_filters.ApproximateTimeSynchronizer(
             [self._gps_sub, self._dot_sub, self._dist_sub, self._bear_sub], 10, slop=10
         )
@@ -84,7 +81,7 @@ class RTKBeardist(Node):
             deg_msg.data = degrees
             self.deg_pub.publish(deg_msg)
 
-            kally = self.kf.step(radians)
+            kally = self.rad_filter.step(radians)
             kall_msg.data = kally
             self.kall_pub.publish(kall_msg)
 

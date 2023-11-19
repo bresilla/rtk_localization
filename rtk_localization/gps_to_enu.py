@@ -73,8 +73,8 @@ class MyNode(Node):
         lat, lon, alt = gps_msg.latitude, gps_msg.longitude, gps_msg.altitude
         ecef_msg = Odometry()
         ecef_msg.header = gps_msg.header
-        ecef_x,ecef_y,ecef_z = pm.geodetic2ecef(lat,lon,alt)
-        # ecef_x,ecef_y,ecef_z = gps_to_ecef((lat,lon,alt))
+        # ecef_x,ecef_y,ecef_z = pm.geodetic2ecef(lat,lon,alt)
+        ecef_x,ecef_y,ecef_z = gps_to_ecef((lat,lon,alt))
         ecef_msg.pose.pose.position.x = ecef_x
         ecef_msg.pose.pose.position.y = ecef_y
         ecef_msg.pose.pose.position.z = ecef_z
@@ -82,8 +82,8 @@ class MyNode(Node):
         enu_msg = Odometry()
         enu_msg.header = gps_msg.header
         d_lat, d_lon, d_alt = datum_msg.latitude, datum_msg.longitude, datum_msg.altitude
-        enu_x,enu_y,enu_z = pm.geodetic2enu(lat,lon,alt,d_lat,d_lon,d_alt)
-        # enu_x,enu_y,enu_z = ecef_to_enu((lat,lon,alt), (d_lat,d_lon,d_alt))
+        # enu_x,enu_y,enu_z = pm.geodetic2enu(lat,lon,alt,d_lat,d_lon,d_alt)
+        enu_x,enu_y,enu_z = ecef_to_enu((lat,lon,alt), (d_lat,d_lon,d_alt))
         enu_msg.pose.pose.position.x = enu_x
         enu_msg.pose.pose.position.y = enu_y
         enu_msg.pose.pose.position.z = enu_z

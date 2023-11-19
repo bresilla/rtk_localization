@@ -93,16 +93,7 @@ class RTKBeardist(Node):
         self.request_stat()
         return response
     
-    def request_stat(self):
-        cli_request = Trigger.Request()
-        while not self.cli.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('service not available, waiting again...')
-        self.cli.call_async(cli_request)
-        # try:
-        #     self.cli.wait_for_service(timeout_sec=1.0)
-        #     self.cli.call_async(cli_request)
-        # except Exception as e:
-        #     self.get_logger().info(f"Service call failed {e}")
+
 
 
 def main(args=None):

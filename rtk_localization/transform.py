@@ -29,7 +29,7 @@ class Transformerr(Node):
 
     def ecef_timer(self):
         if not self.is_transformed:
-            self.get_logger().info('TRANSFORMS STILL NOT SET')
+            self.get_logger().info('DATUM NOT SET, PLEASE SET DATUM FIRST!')
             return
         self.map_transform()
         self.odom_transform()

@@ -10,7 +10,7 @@ class Transformerr(Node):
         super().__init__("rtk_transform")
         self.tf_dyna_broadcaster = TransformBroadcaster(self)
         self.tf_stat_broadcaster = StaticTransformBroadcaster(self)
-        self.odom_sub = self.create_subscription(Odometry, "/rtk/odom", self.dyna_transform, 10)
+        self.odom_sub = self.create_subscription(Odometry, "/rtk/odom", self.dyna_transform, 1)
         # self.map_sub = self.create_subscription(Odometry, "/rtk/map", self.stat_transform, 10)
         # self.stat_transform(Odometry())
 

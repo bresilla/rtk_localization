@@ -5,8 +5,6 @@ from rclpy.node import Node
 import message_filters
 from nav_msgs.msg import Odometry
 from handy_msgs.msg import Float32Stamped
-from handy_msgs.srv import DatumGPS, DatumENU
-from example_interfaces.srv import Trigger
 import pymap3d as pm
 
 

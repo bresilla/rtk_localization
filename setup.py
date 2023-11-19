@@ -34,6 +34,7 @@ setup(
         #     'rtk_kalman = rtk_localization.rtk_kalman:main',
         # ],
         'console_scripts': [
+            'cord_convert = rtk_localization.cord_convert:main',
             'gps_fuse = rtk_localization.gps_fuse:main',
             'gps_to_enu = rtk_localization.gps_to_enu:main',
             'odometry = rtk_localization.odometry:main',

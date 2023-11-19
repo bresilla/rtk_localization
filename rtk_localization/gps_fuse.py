@@ -1,10 +1,10 @@
-import math
+import math, numpy as np
 import rclpy
 from sensor_msgs.msg import NavSatFix
 from rclpy.node import Node
 import message_filters
 from handy_msgs.msg import Float32Stamped
-from handy_msgs.srv import DatumGPS, DatumENU
+from handy_msgs.srv import Datum
 from example_interfaces.srv import Trigger
 
 def midpoint(lat1, long1, lat2, long2):
@@ -40,12 +40,17 @@ def calc_bearing(lat1, long1, lat2, long2):
     bearing_deg = math.degrees(bearing_rad)
     # Make sure the bearing is positive
     bearing_deg = (bearing_deg + 360) % 360
-    #make sure bearing is between 0 and 2pi
+    #make sure bearing is between -2pi and 2pi
+    # if bearing_rad < -math.pi:
+    #     bearing_rad += 2 * math.pi
+    # elif bearing_rad > math.pi:
+    #     bearing_rad -= 2 * math.pi
     if bearing_rad < 0:
         bearing_rad += 2 * math.pi
     elif bearing_rad > 2 * math.pi:
         bearing_rad -= 2 * math.pi
     return bearing_deg, bearing_rad
+
 
 class MyNode(Node):
     def __init__(self, args):
@@ -66,7 +71,7 @@ class MyNode(Node):
         self.rad = self.create_publisher(Float32Stamped, "/fix/rad", 10)
         self.dat_pub = self.create_publisher(NavSatFix, "/fix/datum/gps", 10)
 
-        self._datum_gps = self.create_service(DatumGPS, '/datum/gps', self.datum_gps)
+        self._datum_gps = self.create_service(Datum, '/datum/gps', self.datum_gps)
         self._datum_set = self.create_service(Trigger, '/datum/set', self.datum_set)
         # self.cli = self.create_client(Trigger, '/fix/trigger')
 
@@ -77,7 +82,7 @@ class MyNode(Node):
             gps_msg = NavSatFix()
             gps_msg.header = front_msg.header
             gps_msg.latitude, gps_msg.longitude = midpoint(front_msg.latitude, front_msg.longitude, back_msg.latitude, back_msg.longitude)
-        gps_msg.header.frame_id = "gps"
+        # gps_msg.header.frame_id = "gps"
         self.curr_position = gps_msg
 
         deg_msg = Float32Stamped()

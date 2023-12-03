@@ -3,15 +3,12 @@ from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration, FindExecutable
 from launch.actions import ExecuteProcess
 from launch_ros.actions import Node
-from launch.conditions import IfCondition, UnlessCondition
 
 def get_ros2_nodes():
-    antena_arg = DeclareLaunchArgument('double_antenna', default_value='True', description='double antenna')
-    antenna_split = Node(
-        condition = UnlessCondition(LaunchConfiguration('double_antenna')),
+    single_gps = Node(
         package='rtk_localization',
-        executable='antenna_split',
-        name='antenna_split',
+        executable='single_gps',
+        name='single_gps',
         output='screen',
     )
     cord_convert = Node(
@@ -20,10 +17,10 @@ def get_ros2_nodes():
         name='cord_convert',
         output='screen',
     )
-    antenna_fuse = Node(
+    gps_fuse = Node(
         package='rtk_localization',
-        executable='antenna_fuse',
-        name='antenna_fuse',
+        executable='gps_fuse',
+        name='gps_fuse',
         output='screen',
     )
     gps_to_enu = Node(
@@ -45,14 +42,22 @@ def get_ros2_nodes():
         output='screen',
     )
     return [
-        antena_arg,
-        antenna_split,
         cord_convert,
-        antenna_fuse,
+        single_gps,
+        gps_fuse,
         gps_to_enu,
         odometry,
         transform,
     ]
 
 def generate_launch_description(*args, **kwargs):
-    return LaunchDescription(get_ros2_nodes())
+    arg1 = DeclareLaunchArgument('delta', default_value='0.1', description='Threshold for delta')
+    arg2 = DeclareLaunchArgument('double_antena', default_value='Trfue', description='if true, use double antena')
+    return LaunchDescription(
+        [
+            arg1,
+            arg2,
+        ] 
+    + get_ros2_nodes(
+    )
+)

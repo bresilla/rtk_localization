@@ -58,7 +58,7 @@ class MyNode(Node):
         self.get_logger().info('STARTING GPS FUSE')
         self.datum = None
         self.curr_position = None
-        self.front_as_main = False
+        self.front_as_main = True
 
         self._gps_front = message_filters.Subscriber(self, NavSatFix, '/gps/front')
         self._gps_back = message_filters.Subscriber(self, NavSatFix, '/gps/back')
@@ -66,6 +66,7 @@ class MyNode(Node):
             [self._gps_front, self._gps_back], 10, slop=10
         )
         self._gps_filter.registerCallback(self.callback)
+
         self.gps_pub = self.create_publisher(NavSatFix, "/fix/gps", 10)
         self.deg = self.create_publisher(Float32Stamped, "/fix/deg", 10)
         self.rad = self.create_publisher(Float32Stamped, "/fix/rad", 10)

@@ -45,6 +45,7 @@ class MyNode(Node):
         self.odom_odom = self.odom_map = Odometry()
         self.path = Path()
         self.path.header.frame_id = "map"
+        self._prev_point = None
 
         self.odom_pub = self.create_publisher(Odometry, "/fix/odom", 10)
         self.odom_timer = self.create_timer(0.01, self.odom_callback)
@@ -70,7 +71,14 @@ class MyNode(Node):
         pose = PoseStamped()
         pose.header = self.odom_odom.header
         pose.pose = self.odom_odom.pose.pose
-        self.path.poses.append(pose)
+        if self._prev_point is None:
+            self._prev_point = pose
+        
+        distance = np.sqrt((pose.pose.position.x - self._prev_point.pose.position.x)**2 + (pose.pose.position.y - self._prev_point.pose.position.y)**2)
+        if distance > 0.1:
+            self._prev_point = pose
+            self.path.poses.append(pose)
+
         if len(self.path.poses) > 100 and self.reset_path:
             self.path.poses.pop(0)
 

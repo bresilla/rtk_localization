@@ -38,11 +38,10 @@ class RTKBeardist(Node):
         self.kall_pub = self.create_publisher(Float32Stamped, '/rtk/kallman', 10)
 
         self._gps_sub = message_filters.Subscriber(self, NavSatFix, '/rtk/fix')
-        self._dot_sub = message_filters.Subscriber(self, NavSatFix, '/rtk/dot')
         self._dist_sub = message_filters.Subscriber(self, Float32Stamped, '/rtk/distance')
         self._bear_sub = message_filters.Subscriber(self, Float32Stamped, '/rtk/bearing')
         self._syn_pub = message_filters.ApproximateTimeSynchronizer(
-            [self._gps_sub, self._dot_sub, self._dist_sub, self._bear_sub], 10, slop=10
+            [self._gps_sub, self._dist_sub, self._bear_sub], 10, slop=10
         )
         self._syn_pub.registerCallback(self.sync_callback)
 
@@ -58,7 +57,7 @@ class RTKBeardist(Node):
             self.delta_threshold = new_value
 
 
-    def sync_callback(self, fix, dot, dist, bear):
+    def sync_callback(self, fix, dist, bear):
         self.cur_odom = Odometry()
         self.cur_odom.header = fix.header
         self.cur_odom.pose.pose.position.x = dist.data * math.cos(bear.data)

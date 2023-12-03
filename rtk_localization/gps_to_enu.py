@@ -1,49 +1,49 @@
 import numpy as np
+import math
 import rclpy
 from sensor_msgs.msg import NavSatFix
 from rclpy.node import Node
 import message_filters
 from nav_msgs.msg import Odometry
 from handy_msgs.msg import Float32Stamped
-import pymap3d as pm
 
+R = 635_675_2.314_2
+f_inv = 298.257_223_563
+f = 1.0 / f_inv
+e2 = 1 - (1 - f) * (1 - f)
 
 def gps_to_ecef(coords):
-    lat, lon, alt = coords
-    rad_lat = lat * (np.pi / 180.0)
-    rad_lon = lon * (np.pi / 180.0)
-    a = 6378137.0
-    finv = 298.257223563
-    f = 1 / finv
-    e2 = 1 - (1 - f) * (1 - f)
-    v = a / np.sqrt(1 - e2 * np.sin(rad_lat) * np.sin(rad_lat))
-    x = (v + alt) * np.cos(rad_lat) * np.cos(rad_lon)
-    y = (v + alt) * np.cos(rad_lat) * np.sin(rad_lon)
-    z = (v * (1 - e2) + alt) * np.sin(rad_lat)
+    latitude, longitude, altitude = coords
+    cosLat = math.cos(latitude * math.pi / 180)
+    sinLat = math.sin(latitude * math.pi / 180)
+    cosLong = math.cos(longitude * math.pi / 180)
+    sinLong = math.sin(longitude * math.pi / 180)
+    c = 1 / math.sqrt(cosLat * cosLat + (1 - f) * (1 - f) * sinLat * sinLat)
+    s = (1 - f) * (1 - f) * c
+    x = (R*c + altitude) * cosLat * cosLong
+    y = (R*c + altitude) * cosLat * sinLong
+    z = (R*s + altitude) * sinLat
     return x, y, z
 
-def ecef_to_enu(fix, datum):
-    fix_ecef = np.array(gps_to_ecef(fix))
-    datum_ecef = np.array(gps_to_ecef(datum))
-    # Calculate the differences in coordinates
-    dx = fix_ecef[0] - datum_ecef[0]
-    dy = fix_ecef[1] - datum_ecef[1]
-    dz = fix_ecef[2] - datum_ecef[2]
-    # Get observer's geodetic coordinates
-    observer_lat = np.arctan2(datum_ecef[2], np.sqrt(datum_ecef[0]**2 + datum_ecef[1]**2))
-    observer_lon = np.arctan2(datum_ecef[1], datum_ecef[0])
-    # Calculate rotation matrix elements
-    sin_lon = np.sin(observer_lon)
-    cos_lon = np.cos(observer_lon)
-    sin_lat = np.sin(observer_lat)
-    cos_lat = np.cos(observer_lat)
-    # Calculate rotation matrix
-    rotation_matrix = np.array([[-sin_lon, cos_lon, 0],
-                                 [-sin_lat * cos_lon, -sin_lat * sin_lon, cos_lat],
-                                 [cos_lat * cos_lon, cos_lat * sin_lon, sin_lat]])
-    # Apply rotation matrix to get ENU coordinates
-    enu = np.dot(rotation_matrix, np.array([dx, dy, dz]))
-    return enu
+def ecef_to_enu(ecef, datum):
+    x, y, z = ecef
+    latRef, longRef, altRef = datum
+    cosLatRef = math.cos(latRef * math.pi / 180)
+    sinLatRef = math.sin(latRef * math.pi / 180)
+    cosLongRef = math.cos(longRef * math.pi / 180)
+    sinLongRef = math.sin(longRef * math.pi / 180)
+    cRef = 1 / math.sqrt(cosLatRef * cosLatRef + (1 - f) * (1 - f) * sinLatRef * sinLatRef)
+    x0 = (R*cRef + altRef) * cosLatRef * cosLongRef
+    y0 = (R*cRef + altRef) * cosLatRef * sinLongRef
+    z0 = (R*cRef*(1-e2) + altRef) * sinLatRef
+    xEast = (-(x-x0) * sinLongRef) + ((y-y0)*cosLongRef)
+    yNorth = (-cosLongRef*sinLatRef*(x-x0)) - (sinLatRef*sinLongRef*(y-y0)) + (cosLatRef*(z-z0))
+    zUp = (cosLatRef*cosLongRef*(x-x0)) + (cosLatRef*sinLongRef*(y-y0)) + (sinLatRef*(z-z0))
+    return xEast, yNorth, zUp
+
+def geodetic_to_enu(lat, lon, h, lat_ref, lon_ref, h_ref):
+    x, y, z = gps_to_ecef((lat, lon, h))
+    return ecef_to_enu(x, y, z, lat_ref, lon_ref, h_ref)
 
 class MyNode(Node):
     def __init__(self, args):
@@ -73,7 +73,6 @@ class MyNode(Node):
         lat, lon, alt = gps_msg.latitude, gps_msg.longitude, gps_msg.altitude
         ecef_msg = Odometry()
         ecef_msg.header = gps_msg.header
-        # ecef_x,ecef_y,ecef_z = pm.geodetic2ecef(lat,lon,alt)
         ecef_x,ecef_y,ecef_z = gps_to_ecef((lat,lon,alt))
         ecef_msg.pose.pose.position.x = ecef_x
         ecef_msg.pose.pose.position.y = ecef_y
@@ -82,8 +81,7 @@ class MyNode(Node):
         enu_msg = Odometry()
         enu_msg.header = gps_msg.header
         d_lat, d_lon, d_alt = datum_msg.latitude, datum_msg.longitude, datum_msg.altitude
-        # enu_x,enu_y,enu_z = pm.geodetic2enu(lat,lon,alt,d_lat,d_lon,d_alt)
-        enu_x,enu_y,enu_z = ecef_to_enu((lat,lon,alt), (d_lat,d_lon,d_alt))
+        enu_x,enu_y,enu_z = ecef_to_enu((ecef_x,ecef_y,ecef_z), (d_lat,d_lon,d_alt))
         enu_msg.pose.pose.position.x = enu_x
         enu_msg.pose.pose.position.y = enu_y
         enu_msg.pose.pose.position.z = enu_z
@@ -95,7 +93,7 @@ class MyNode(Node):
         self.datum = Odometry()
         self.datum.header = datum_msg.header
         lat, lon, alt = datum_msg.latitude, datum_msg.longitude, datum_msg.altitude
-        x,y,z = pm.geodetic2ecef(lat,lon,alt)
+        x,y,z = gps_to_ecef((lat,lon,alt))
         self.datum.pose.pose.position.x = x
         self.datum.pose.pose.position.y = y
         self.datum.pose.pose.position.z = z

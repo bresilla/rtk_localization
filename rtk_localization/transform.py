@@ -4,7 +4,6 @@ from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
 from geometry_msgs.msg import TransformStamped
-# import time
 
 class Transformerr(Node):
     def __init__(self, args):
@@ -20,16 +19,15 @@ class Transformerr(Node):
 
     def ecef_callback(self, msg):
         self.ecef_msg = msg
-        # time.sleep(1)
         self.destroy_subscription(self._ecef)
-        self.map_transform()
+        # self.map_transform()
         self.odom_transform()
         self.is_transformed = True
         self.get_logger().info('TRANSFORMS SET')
 
     def ecef_timer(self):
         if not self.is_transformed:
-            self.get_logger().info('DATUM NOT SET, PLEASE SET DATUM FIRST!')
+            self.get_logger().warn('DATUM NOT SET, PLEASE SET DATUM FIRST!')
             return
         self.map_transform()
         self.odom_transform()
@@ -78,8 +76,8 @@ class Transformerr(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    navfix = Transformerr(args=args)
-    rclpy.spin(navfix)
+    anode = Transformerr(args=args)
+    rclpy.spin(anode)
     rclpy.shutdown()
 
 if __name__ == '__main__':
